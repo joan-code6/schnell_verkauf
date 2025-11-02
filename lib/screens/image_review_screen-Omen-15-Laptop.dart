@@ -5,7 +5,7 @@ import 'package:crop_your_image/crop_your_image.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:image/image.dart' as img;
-import 'additional_info_screen.dart';
+import 'select_ai_images_screen.dart';
 
 class ImageReviewScreen extends StatefulWidget {
   final List<String> imagePaths;
@@ -89,18 +89,18 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
     super.dispose();
   }
   
-  void _continueToAdditionalInfo() {
+  void _continueToSelectAIImages() {
     if (widget.imagePaths.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Bitte mindestens ein Foto hinzufügen')),
       );
       return;
     }
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AdditionalInfoScreen(imagePaths: widget.imagePaths),
+        builder: (context) => SelectAIImagesScreen(allImagePaths: widget.imagePaths),
       ),
     );
   }
@@ -108,10 +108,9 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
         title: const Text('Fotos überprüfen'),
-        backgroundColor: const Color(0xFF4CAF50),
+        backgroundColor: Colors.orange,
       ),
       body: Column(
         children: [
@@ -174,7 +173,7 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                         left: 4,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFF4CAF50),
+                            color: Colors.orange,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: InkWell(
@@ -213,9 +212,9 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             child: ElevatedButton(
-              onPressed: _continueToAdditionalInfo,
+              onPressed: _continueToSelectAIImages,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4CAF50),
+                backgroundColor: Colors.orange,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 textStyle: const TextStyle(fontSize: 18),
@@ -275,7 +274,6 @@ class _CropScreenState extends State<_CropScreen> {
         _rotationCount = (_rotationCount + quarterTurns) % 4;
       });
     } catch (e) {
-      print('Error rotating image: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -298,7 +296,7 @@ class _CropScreenState extends State<_CropScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.imageName} bearbeiten'),
-        backgroundColor: const Color(0xFF4CAF50),
+        backgroundColor: Colors.orange,
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
@@ -374,7 +372,7 @@ class _CropScreenState extends State<_CropScreen> {
               baseColor: Colors.black,
               maskColor: Colors.black.withOpacity(0.3),
               radius: 0,
-              cornerDotBuilder: (size, edgeAlignment) => const DotControl(color: Color(0xFF4CAF50)),
+              cornerDotBuilder: (size, edgeAlignment) => const DotControl(color: Colors.orange),
               interactive: true,
             ),
           ),
@@ -436,8 +434,8 @@ class _AspectRatioButton extends StatelessWidget {
         controller.aspectRatio = aspectRatio;
       },
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
-        foregroundColor: const Color(0xFF2E7D32),
+        backgroundColor: Colors.orange[100],
+        foregroundColor: Colors.orange[800],
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
       child: Text(

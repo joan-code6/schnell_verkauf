@@ -52,7 +52,6 @@ class _CameraScreenState extends State<CameraScreen> {
         _isInitializing = false;
       });
     } catch (e) {
-      print('Error initializing camera: $e');
       setState(() {
         _isInitializing = false;
       });
@@ -166,9 +165,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
   @override
   void dispose() {
-     
-     
-       // Restore all orientations when leaving this screen
+  // Restore all orientations when leaving this screen
   SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     CameraService.dispose();
     super.dispose();
@@ -188,7 +185,7 @@ class _CameraScreenState extends State<CameraScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Schnell Verkaufen'),
-          backgroundColor: const Color(0xFF4CAF50),
+          backgroundColor: Colors.orange,
         ),
         body: const Center(
           child: Text(

@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import '../services/api_key_manager.dart';
 import '../services/kleinanzeigen_service.dart';
 import '../services/ads_service.dart';
+import '../services/smart_pricing_settings.dart';
+import '../services/ads_agent_key_manager.dart';
+import 'package:flutter/services.dart';
+import 'package:advertising_id/advertising_id.dart';
+import 'privacy_policy_screen.dart';
 
 class ApiKeySettingsScreen extends StatefulWidget {
   const ApiKeySettingsScreen({super.key});
@@ -17,12 +22,128 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
   bool _obscureText = true;
   String? _familyCode; // stored code
   bool _loadingFamily = true;
+  bool _hasKleinanzeigenCookies = false;
+  bool _smartPricing = false;
+  final TextEditingController _agentKeyController = TextEditingController();
+  bool _hasAgentKey = false;
 
   @override
   void initState() {
     super.initState();
     _loadApiKey();
     _loadFamilyCode();
+    _loadKleinanzeigenCookieState();
+  _loadSmartPricing();
+  _loadAgentKey();
+  }
+
+  Future<void> _loadKleinanzeigenCookieState() async {
+    final has = await KleinanzeigenService.hasCookies();
+    if (!mounted) return;
+    setState(() {
+      _hasKleinanzeigenCookies = has;
+    });
+  }
+
+  Future<void> _kleinanzeigenLogout() async {
+    setState(() { _isLoading = true; });
+    final ok = await KleinanzeigenService.clearCookiesAndLogout();
+    if (!mounted) return;
+    setState(() { _isLoading = false; _hasKleinanzeigenCookies = false; });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Kleinanzeigen: Cookies gelöscht' : 'Kleinanzeigen: Keine oder Fehler beim Löschen'),
+        backgroundColor: ok ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  Future<void> _loadSmartPricing() async {
+    final enabled = await SmartPricingSettings.isEnabled();
+    if (!mounted) return;
+    setState(() { _smartPricing = enabled; });
+  }
+
+  Future<void> _toggleSmartPricing(bool v) async {
+    await SmartPricingSettings.setEnabled(v);
+    if (!mounted) return;
+    setState(() { _smartPricing = v; });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Smart Pricing ${v ? 'aktiviert' : 'deaktiviert'}')),
+    );
+  }
+
+  Future<void> _loadAgentKey() async {
+    final key = await AdsAgentKeyManager.getKey();
+    if (!mounted) return;
+    setState(() {
+      _hasAgentKey = key != null && key.isNotEmpty;
+      if (key != null) _agentKeyController.text = key;
+    });
+  }
+
+  Future<void> _saveAgentKey() async {
+    final v = _agentKeyController.text.trim();
+    if (v.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Agent API Key darf nicht leer sein'), backgroundColor: Colors.red));
+      return;
+    }
+    await AdsAgentKeyManager.saveKey(v);
+    await _loadAgentKey();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Agent API Key gespeichert'), backgroundColor: Colors.green));
+  }
+
+  Future<void> _clearAgentKey() async {
+    await AdsAgentKeyManager.clearKey();
+    await _loadAgentKey();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Agent API Key gelöscht'), backgroundColor: Colors.orange));
+  }
+
+  Future<void> _showDebugInfo() async {
+    String? adId;
+    bool limitAdTracking = false;
+    try {
+      adId = await AdvertisingId.id(true);
+    } catch (e) {
+      adId = null;
+    }
+    try {
+      final lat = await AdvertisingId.isLimitAdTrackingEnabled;
+      limitAdTracking = lat ?? false;
+    } catch (_) {}
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Debug Informationen'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Werbe-ID: ${adId ?? 'nicht verfügbar'}'),
+              const SizedBox(height: 8),
+              Text('Limit Ad Tracking: ${limitAdTracking ? 'Ja' : 'Nein'}'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Schließen')),
+          TextButton(
+            onPressed: adId == null
+                ? null
+                : () {
+                    Clipboard.setData(ClipboardData(text: adId ?? ''));
+                    Navigator.pop(c);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Werbe-ID kopiert')));
+                  },
+            child: const Text('Werbe-ID kopieren'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadFamilyCode() async {
@@ -40,7 +161,7 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
     final newCode = await showDialog<String?>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Familien Code'),
+        title: const Text('Premium Code'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
@@ -152,7 +273,7 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('API-Schlüssel gelöscht'),
-            backgroundColor: const Color(0xFF4CAF50),
+            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -207,16 +328,16 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
   @override
   void dispose() {
     _apiKeyController.dispose();
+  _agentKeyController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
   return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
         title: const Text('Einstellungen'),
-        backgroundColor: const Color(0xFF4CAF50),
+        backgroundColor: Colors.orange,
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -225,39 +346,26 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
             Card(
-              elevation: 0,
-              child: Container(
-                padding: const EdgeInsets.all(20),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4CAF50).withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.key_rounded, 
-                            color: Color(0xFF4CAF50),
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
+                        const Icon(Icons.key, color: Colors.orange),
+                        const SizedBox(width: 8),
                         const Text(
                           'Gemini API-Schlüssel',
                           style: TextStyle(
                             fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF2E7D32),
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
@@ -269,20 +377,7 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
                       decoration: InputDecoration(
                         labelText: 'API-Schlüssel eingeben',
                         hintText: 'AIza...',
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF4CAF50), width: 2),
-                        ),
+                        border: const OutlineInputBorder(),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscureText ? Icons.visibility : Icons.visibility_off,
@@ -302,7 +397,7 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _saveApiKey,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF4CAF50),
+                              backgroundColor: Colors.orange,
                               foregroundColor: Colors.white,
                             ),
                             child: _isLoading
@@ -318,7 +413,7 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
                           ),
                         ),
                         if (_hasApiKey) ...[
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           ElevatedButton(
                             onPressed: _clearApiKey,
                             style: ElevatedButton.styleFrom(
@@ -334,11 +429,10 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Card(
-              elevation: 0,
-              color: const Color(0xFF4CAF50).withOpacity(0.05),
-              child: Container(
+              color: Colors.blue.shade50,
+              child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,6 +482,73 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
                 ),
               ),
             const SizedBox(height: 24),
+            // Smart Pricing toggle
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.trending_up, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text('Smart Pricing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Wenn aktiviert, analysiert die KI zusätzlich aktuelle Angebote und optimiert den Preis automatisch.'),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Smart Pricing aktivieren'),
+                      value: _smartPricing,
+                      onChanged: (v) => _toggleSmartPricing(v),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Kleinanzeigen Agent API Key
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: const [Icon(Icons.search, color: Colors.orange), SizedBox(width: 8), Text('Agent API-key', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))]),
+                    const SizedBox(height: 12),
+                    const Text('Für Marktpreis-Abgleich (Smart Pricing). \nErhalten sie den Key von kleinanzeigen-agent.de'),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _agentKeyController,
+                      decoration: const InputDecoration(labelText: 'API Key', border: OutlineInputBorder()),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _saveAgentKey,
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+                          child: const Text('Speichern'),
+                        ),
+                      ),
+                      if (_hasAgentKey) ...[
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _clearAgentKey,
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                          child: const Text('Löschen'),
+                        ),
+                      ]
+                    ])
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
             // Family code section
             Card(
               child: Padding(
@@ -397,7 +558,7 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
                   children: [
                     Row(
                       children: const [
-                        Icon(Icons.lock, color: const Color(0xFF4CAF50)),
+                        Icon(Icons.lock, color: Colors.orange),
                         SizedBox(width: 8),
                         Text('Secret Code', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       ],
@@ -483,7 +644,7 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
                   children: [
                     Row(
                       children: const [
-                        Icon(Icons.person, color: const Color(0xFF4CAF50)),
+                        Icon(Icons.person, color: Colors.orange),
                         SizedBox(width: 8),
                         Text(
                           'Kleinanzeigen Login',
@@ -499,26 +660,85 @@ class _ApiKeySettingsScreenState extends State<ApiKeySettingsScreen> {
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          KleinanzeigenService.showLoginWebView(context);
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF4CAF50)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        icon: const Icon(Icons.login, color: Color(0xFF4CAF50)),
-                        label: const Text(
-                          'Bei Kleinanzeigen anmelden',
-                          style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.w600),
-                        ),
+                      child: _hasKleinanzeigenCookies
+                          ? OutlinedButton.icon(
+                              onPressed: _isLoading ? null : _kleinanzeigenLogout,
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.red),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.logout, color: Colors.red),
+                              label: _isLoading
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Text(
+                                      'Kleinanzeigen Logout',
+                                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                                    ),
+                            )
+                          : OutlinedButton.icon(
+                              onPressed: () async {
+                                await KleinanzeigenService.showLoginWebView(context);
+                                // Refresh cookie state when returning from the login webview
+                                await _loadKleinanzeigenCookieState();
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.orange),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.login, color: Colors.orange),
+                              label: const Text(
+                                'Bei Kleinanzeigen anmelden',
+                                style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: const [Icon(Icons.bug_report, color: Colors.orange), SizedBox(width: 8), Text('Debug Informationen', style: TextStyle(fontWeight: FontWeight.bold))]),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          OutlinedButton(
+                            onPressed: _showDebugInfo,
+                            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                            child: const Text('Debug Informationen anzeigen'),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (c) => const PrivacyPolicyScreen()),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                            child: const Text('Datenschutz / Privacy Policy anzeigen'),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
             ),
+            const SizedBox(height: 16),
           ],
           ),
         ),

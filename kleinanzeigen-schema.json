@@ -1,0 +1,148 @@
+{
+  "schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "categoryTree": {
+      "type": "object",
+      "properties": {
+        "identifier": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "childrenDescription": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "identifier": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "fieldName": {
+                "type": "string"
+              },
+              "fieldValue": {
+                "type": "string"
+              },
+              "childrenDescription": {
+                "type": "string"
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "identifier": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "fieldName": {
+                      "type": "string"
+                    },
+                    "fieldValue": {
+                      "type": "string"
+                    },
+                    "childrenDescription": {
+                      "type": "string"
+                    },
+                    "children": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "identifier": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "fieldName": {
+                            "type": "string"
+                          },
+                          "fieldValue": {
+                            "type": "string"
+                          },
+                          "childrenDescription": {
+                            "type": "string"
+                          },
+                          "children": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "identifier": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "fieldName": {
+                                  "type": "string"
+                                },
+                                "fieldValue": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "identifier",
+                                "name",
+                                "fieldName",
+                                "fieldValue"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "identifier",
+                          "name",
+                          "fieldName",
+                          "fieldValue",
+                          "childrenDescription",
+                          "children"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "identifier",
+                    "name",
+                    "fieldName",
+                    "fieldValue",
+                    "childrenDescription",
+                    "children"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "identifier",
+              "name",
+              "fieldName",
+              "fieldValue",
+              "childrenDescription",
+              "children"
+            ]
+          }
+        }
+      },
+      "required": [
+        "identifier",
+        "name",
+        "childrenDescription",
+        "children"
+      ]
+    }
+  },
+  "required": [
+    "categoryTree"
+  ]
+}

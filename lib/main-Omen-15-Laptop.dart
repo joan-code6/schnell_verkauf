@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter/foundation.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'services/ads_service.dart';
+import 'screens/shop_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/onboarding_service.dart';
 import 'services/camera_service.dart';
 import 'services/api_key_manager.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +33,9 @@ void main() async {
   ]);
   
   final completed = await OnboardingService.isCompleted();
+  // If onboarding has not been completed, suspend ads from the very start so
+  // the GlobalBannerHost doesn't load or display banners on the welcome flow.
+  AdsService.suspendAds.value = !completed;
   runApp(SchnellVerkaufApp(onboardingCompleted: completed));
 }
 
@@ -43,71 +48,17 @@ class SchnellVerkaufApp extends StatelessWidget {
     return MaterialApp(
   title: 'Schnell Verkaufen',
       debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4CAF50),
-          primary: const Color(0xFF4CAF50),
-          brightness: Brightness.light,
+          seedColor: Colors.orange,
+          primary: Colors.orange,
         ),
         useMaterial3: true,
-        textTheme: GoogleFonts.interTextTheme(),
-        appBarTheme: AppBarTheme(
-          backgroundColor: const Color(0xFF4CAF50),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.orange,
           foregroundColor: Colors.white,
           elevation: 0,
-          centerTitle: true,
-          titleTextStyle: GoogleFonts.inter(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF4CAF50),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shadowColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-            textStyle: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          color: Colors.grey[50],
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.grey[50],
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey[300]!),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey[300]!),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF4CAF50), width: 2),
-          ),
-          labelStyle: GoogleFonts.inter(
-            color: Colors.grey[600],
-            fontSize: 16,
-          ),
-          hintStyle: GoogleFonts.inter(
-            color: Colors.grey[500],
-            fontSize: 16,
-          ),
         ),
       ),
   builder: (context, child) => GlobalBannerHost(child: child ?? const SizedBox()),
@@ -203,31 +154,74 @@ class _GlobalBannerHostState extends State<GlobalBannerHost> with WidgetsBinding
     return ValueListenableBuilder<bool>(
       valueListenable: AdsService.showAds,
       builder: (context, showAds, _) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: AdsService.suspendAds,
+          builder: (context, suspended, __) {
         Widget banner = const SizedBox.shrink();
-        if (showAds && _loaded && ad != null) {
-          banner = Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Divider(height: 1, thickness: 0.5),
-              SizedBox(
-                width: double.infinity,
-                height: ad.size.height.toDouble(),
-                child: Center(
-                  child: SizedBox(
-                    width: ad.size.width.toDouble(),
-                    height: ad.size.height.toDouble(),
-                    child: AdWidget(ad: ad),
+            // If suspended (e.g. onboarding) we never show banners here.
+            if (suspended) {
+              banner = const SizedBox.shrink();
+            } else if (showAds) {
+          if (_loaded && ad != null) {
+            banner = Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Divider(height: 1, thickness: 0.5),
+                SizedBox(
+                  width: double.infinity,
+                  height: ad.size.height.toDouble(),
+                  child: Center(
+                    child: SizedBox(
+                      width: ad.size.width.toDouble(),
+                      height: ad.size.height.toDouble(),
+                      child: AdWidget(ad: ad),
+                    ),
                   ),
                 ),
+              ],
+            );
+          } else {
+            // Fallback Eigenwerbung
+            banner = GestureDetector(
+              onTap: () {
+                navigatorKey.currentState!.push(
+                  MaterialPageRoute(builder: (_) => const ShopScreen()),
+                );
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Divider(height: 1, thickness: 0.5),
+                  Container(
+                    color: Colors.black12,
+                    width: double.infinity,
+                    height: 50,
+                    alignment: Alignment.center,
+                    child: Image.asset(
+                      'assets/ads/fallback_banner.png',
+                      fit: BoxFit.contain,
+                      height: 50,
+                      errorBuilder: (_, __, ___) => const Text(
+                        'Eigene Werbung – Jetzt werbefrei werden',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          );
+            );
+          }
         }
         return Column(
           children: [
             Expanded(child: widget.child),
-            banner,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 100),
+              child: banner,
+            ),
           ],
+        );
+          },
         );
       },
     );

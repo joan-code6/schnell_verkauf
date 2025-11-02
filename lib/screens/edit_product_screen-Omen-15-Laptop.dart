@@ -79,7 +79,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   return Scaffold(
       appBar: AppBar(
         title: const Text('Produktdaten bearbeiten'),
-        backgroundColor: const Color(0xFF4CAF50),
+        backgroundColor: Colors.orange,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -173,7 +173,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
               child: ElevatedButton(
                 onPressed: _postToKleinanzeigen,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4CAF50),
+                  backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

@@ -1,0 +1,184 @@
+/* Mobile-first UI remodel for the ad posting page
+   - Single-column mobile layout
+   - Sticky bottom action bar with primary actions
+   - Collapsible fieldsets to reduce scrolling
+   - Simplified header and logo placement
+   Note: This file intentionally targets mobile viewports (max-width breakpoints)
+*/
+
+/* Base mobile styles (apply mobile-first) */
+html, body {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  color: #0c0c0b;
+}
+
+/* Layout: single column container */
+#main, main, form#adForm {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 0 16px 84px 16px !important; /* bottom padding for sticky bar */
+  max-width: 1000px;
+  margin: 0 auto !important;
+}
+
+/* Simplify and compress header for mobile */
+#site-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 12px 16px !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid rgba(0,0,0,0.06) !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1200 !important;
+}
+
+#site-logo img {
+  max-width: 160px !important;
+  height: auto !important;
+}
+
+/* Make the hero/ad image area take less space on mobile */
+.hero, .hero-banner, .ad-hero, .postad-hero {
+  max-height: 140px !important;
+  overflow: hidden !important;
+}
+
+/* Fieldsets become stacked, collapsed cards */
+form#adForm fieldset {
+  border: none !important;
+  margin: 0 0 12px 0 !important;
+  padding: 0 !important;
+}
+
+.formlegend.headline-medium {
+  font-size: 20px !important;
+  margin: 20px 0 8px 0 !important;
+  padding-bottom: 6px !important;
+  border-bottom: 1px solid rgba(0,0,0,0.08) !important;
+}
+
+/* Make form rows single column */
+.l-row, .l-container-row {
+  display: block !important;
+}
+.l-col, .a-span-17, .a-span-16, .a-span-1 {
+  width: 100% !important;
+  display: block !important;
+}
+
+/* Form groups as cards */
+.formgroup {
+  background: #fff !important;
+  padding: 12px 0 !important;
+  border-bottom: 1px solid rgba(0,0,0,0.04) !important;
+}
+
+.formgroup-label {
+  display: block !important;
+  font-weight: 700 !important;
+  margin-bottom: 8px !important;
+  font-size: 14px !important;
+}
+
+.formgroup-input, .formgroup-input-inline {
+  display: block !important;
+}
+
+/* Make inputs fill width and increase touch targets */
+input.formcontrol, .formcontrol, input.formcontrol-select, select.formcontrol, textarea.formcontrol {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  font-size: 16px !important;
+  line-height: 1.2 !important;
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(0,0,0,0.12) !important;
+  background: #fff !important;
+}
+
+/* Radio/checkbox groups: make them stacked and larger */
+.formgroup-input-inline span {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 8px 0 !important;
+}
+
+/* Help text and errors */
+#ad-title-error, .helpText.jsx-3852312416, .error, .formerror {
+  display: block !important;
+  color: #8a1f1f !important;
+  font-size: 13px !important;
+  margin-top: 6px !important;
+}
+
+/* Primary actions pinned to bottom as sticky action bar */
+#pstad-frmactns {
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 1300 !important;
+  display: flex !important;
+  gap: 12px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 12px 16px !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), #ffffff) !important;
+  box-shadow: 0 -6px 18px rgba(0,0,0,0.06) !important;
+  border-top: 1px solid rgba(0,0,0,0.06) !important;
+}
+
+#pstad-frmactns .button, #pstad-frmactns .button-secondary, #pstad-frmactns button {
+  min-height: 48px !important;
+  min-width: 44% !important;
+  flex: 1 1 auto !important;
+  font-size: 16px !important;
+  border-radius: 10px !important;
+}
+
+/* Make the submit button more prominent */
+#pstad-submit.button {
+  background: #e1f23f !important; /* lime-ish CTA similar to brand */
+  color: #0b3f00 !important;
+  border: none !important;
+}
+
+/* Secondary actions smaller */
+.button-secondary {
+  background: transparent !important;
+  border: 1px solid rgba(0,0,0,0.08) !important;
+}
+
+/* Collapsible fieldset behavior (visual only - JS will toggle class) */
+.fieldset-collapsed .formgroup { display: none !important; }
+.fieldset-collapsed .formlegend { cursor: pointer !important; }
+
+/* Accessibility: increase focus outlines */
+button:focus, input:focus, select:focus, textarea:focus {
+  outline: 3px solid rgba(34,139,34,0.18) !important;
+  outline-offset: 2px !important;
+}
+
+/* Smaller screens tweaks */
+@media (max-width: 420px) {
+  #site-logo img { max-width: 140px !important; }
+  #pstad-frmactns { padding: 10px !important; }
+  #pstad-frmactns .button { font-size: 15px !important; }
+  .formlegend.headline-medium { font-size: 18px !important; }
+}
+
+/* Keep desktop/tablet default layout intact above 900px */
+@media (min-width: 901px) {
+  /* revert sticky action bar to inline container */
+  #pstad-frmactns { position: static !important; display: block !important; padding: 0 !important; box-shadow: none !important; }
+  form#adForm { padding-bottom: 24px !important; }
+}
+
