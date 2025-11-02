@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import '../services/onboarding_service.dart';
 import '../services/api_key_manager.dart';
 import '../services/kleinanzeigen_service.dart';
+import '../services/ads_service.dart';
 import 'home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -22,7 +24,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   bool _checkingKey = true;
   bool _hasKey = false;
   bool _loggedIn = false; // Kleinanzeigen Login Status
-  bool _obscureApiKey = true;
+  // Show API key by default (not a password field) so users can paste easily
+  bool _obscureApiKey = false;
   bool _savingApiKey = false;
 
   @override
@@ -36,10 +39,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   // Start a slight delayed animation for nicer feel
   Future.delayed(const Duration(milliseconds: 120), () { if (mounted) _anim.forward(); });
     _loadKey();
+    // Temporarily suspend global banners while onboarding is active
+    AdsService.suspendAds.value = true;
   }
 
   @override
   void dispose() {
+    // Restore ad visibility when leaving onboarding
+    AdsService.suspendAds.value = false;
     _pageController.dispose();
     _anim.dispose();
     _apiKeyController.dispose();
@@ -107,6 +114,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     // Finish after all gating conditions satisfied
     if (_index == 2 && _loggedIn && _hasKey) {
       await OnboardingService.setCompleted();
+      // Onboarding finished: re-enable banners according to AdsService logic
+      AdsService.suspendAds.value = false;
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -455,11 +464,37 @@ class _ApiKeyPage extends StatelessWidget {
           _InfoTile(icon: Icons.speed, text: 'Ermöglicht Bildanalyse & Preisvorschlag'),
           const SizedBox(height: 24),
           _StepsBox(steps: const [
-            'Gehe zu https://makersuite.google.com/app/apikey',
-            'Mit Google Konto anmelden',
-            'Neuen API Key erzeugen',
-            'Key kopieren & hier einfügen',
+              'Erstelle oder wähle zuerst ein Google Cloud Projekt (console.cloud.google.com)',
+              'Gehe zu https://makersuite.google.com/app/apikey',
+              'Mit Google Konto anmelden',
+              'Neuen API Key erzeugen (ggf. erforderliche APIs aktivieren)',
+              'Key kopieren & hier einfügen',
           ]),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                'Tipp: Tippe die URL an, um sie im Browser zu öffnen. Möglicherweise musst du im Cloud-Projekt die APIs aktivieren oder Abrechnungsinfo hinzufügen (bei manchen Google-Diensten).',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Probleme / Support button (more visible)
+            Align(
+              alignment: Alignment.center,
+              child: ElevatedButton.icon(
+                onPressed: () => _showSupportDialog(context),
+                icon: const Icon(Icons.help_outline, color: Colors.white),
+                label: const Text('Probleme?'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
           const SizedBox(height: 24),
           // API Key Input Field
           Container(
@@ -480,6 +515,10 @@ class _ApiKeyPage extends StatelessWidget {
                 TextField(
                   controller: apiKeyController,
                   obscureText: obscureApiKey,
+                  keyboardType: TextInputType.text,
+                  enableSuggestions: true,
+                  autocorrect: false,
+                  enableInteractiveSelection: true,
                   decoration: InputDecoration(
                     hintText: 'Füge hier deinen Gemini API Key ein',
                     border: const OutlineInputBorder(),
@@ -596,18 +635,81 @@ class _StepsBox extends StatelessWidget {
         children: [
           const Text('So holst du dir den Key:', style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          ...steps.asMap().entries.map((e) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${e.key + 1}. ', style: const TextStyle(fontWeight: FontWeight.bold)),
-                Expanded(child: Text(e.value)),
-              ],
-            ),
-          )),
+          ...steps.asMap().entries.map((e) {
+            final text = e.value;
+            // Known URLs we want clickable
+            final makersuiteUrl = 'https://makersuite.google.com/app/apikey';
+            final consoleUrl = 'https://console.cloud.google.com';
+            if (text.contains(makersuiteUrl)) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${e.key + 1}. ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Expanded(child: _ClickableUrlText(text: text, url: makersuiteUrl)),
+                  ],
+                ),
+              );
+            }
+            if (text.contains('console.cloud.google.com') || text.contains(consoleUrl)) {
+              // Accept both with and without scheme
+              final detected = text.contains(consoleUrl) ? consoleUrl : 'https://console.cloud.google.com';
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${e.key + 1}. ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Expanded(child: _ClickableUrlText(text: text, url: detected)),
+                  ],
+                ),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${e.key + 1}. ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Expanded(child: Text(text)),
+                ],
+              ),
+            );
+          }),
         ],
       ),
+    );
+  }
+}
+
+class _ClickableUrlText extends StatelessWidget {
+  final String text;
+  final String url;
+  const _ClickableUrlText({required this.text, required this.url});
+
+  Future<void> _launchUrl() async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw 'Could not launch $url';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Render original text but style the URL portion to look clickable
+    // Simple approach: split by the url and show clickable TextButton for the url
+    final parts = text.split(url);
+    return Wrap(
+      children: [
+        if (parts.isNotEmpty) Text(parts[0]),
+        TextButton(
+          onPressed: _launchUrl,
+          style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+          child: Text(url, style: const TextStyle(decoration: TextDecoration.underline, color: Colors.blue)),
+        ),
+        if (parts.length > 1) Text(parts.sublist(1).join(url)),
+      ],
     );
   }
 }
@@ -639,3 +741,56 @@ class _Dots extends StatelessWidget {
 }
 
 // (Old _GradientContainer removed – replaced by animated background)
+
+// Support helpers
+Future<void> _launchSupportEmail(BuildContext context) async {
+  final email = 'bennet-wegener@web.de';
+  final subject = Uri.encodeComponent('Support: Probleme mit API Key / Onboarding');
+  final body = Uri.encodeComponent('Hallo Bennet,%0D%0A%0D%0Aich habe Probleme beim Einrichten des API Keys...\n\nBitte kurz melden.\n%0D%0A');
+  final uri = Uri.parse('mailto:$email?subject=$subject&body=$body');
+  if (!await launchUrl(uri)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('E-Mail konnte nicht geöffnet werden')),
+    );
+  }
+}
+
+void _showSupportDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Support kontaktieren'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Bevor du eine E‑Mail schreibst, schau bitte zuerst diese Anleitung:') ,
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: () => _openGuide(ctx),
+            icon: const Icon(Icons.open_in_new, color: Colors.orange),
+            label: const Text('Gradually: Gemini API Guide', style: TextStyle(decoration: TextDecoration.underline)),
+          ),
+          const SizedBox(height: 8),
+          const Text('Wenn das Problem dadurch nicht gelöst wird, kannst du uns per E‑Mail kontaktieren.'),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Abbrechen')),
+        TextButton(
+          onPressed: () {
+            Navigator.of(ctx).pop();
+            _launchSupportEmail(context);
+          },
+          child: const Text('E‑Mail schreiben'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _openGuide(BuildContext context) async {
+  final guide = Uri.parse('https://www.gradually.ai/google-gemini-api');
+  if (!await launchUrl(guide, mode: LaunchMode.externalApplication)) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Guide konnte nicht geöffnet werden')));
+  }
+}

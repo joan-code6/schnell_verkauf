@@ -51,3 +51,5 @@ key.properties
 
 # Dart obfuscation split debug info directory
 build/debug-info/
+flutter_*.png
+.env

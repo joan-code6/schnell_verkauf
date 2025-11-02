@@ -3,6 +3,7 @@ import '../services/api_key_manager.dart';
 import '../services/ads_service.dart';
 import 'camera_screen.dart';
 import 'api_key_settings_screen.dart';
+import 'shop_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -96,13 +97,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Shop',
+          icon: const Icon(Icons.shopping_cart),
+          onPressed: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopScreen()));
+          },
+        ),
   title: GestureDetector(
           onLongPress: () async {
             final controller = TextEditingController();
             await showDialog(
               context: context,
               builder: (c) => AlertDialog(
-                title: const Text('Familien Code eingeben'),
+                title: const Text('Premium Code eingeben'),
                 content: TextField(
                   controller: controller,
                   decoration: const InputDecoration(hintText: 'Code oder leer zum Löschen'),
@@ -138,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         backgroundColor: Colors.orange,
         centerTitle: true,
-        actions: [
+  actions: [
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: _navigateToSettings,
@@ -209,10 +217,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: _hasApiKey ? Colors.orange : Colors.grey,
                 borderRadius: BorderRadius.circular(60),
               ),
-              child: Icon(
-                Icons.camera_alt,
-                size: 60,
-                color: Colors.white,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(60),
+                child: Image.asset(
+                  'assets/logo/logo.png',
+                  fit: BoxFit.cover,
+                  width: 120,
+                  height: 120,
+                ),
               ),
             ),
             const SizedBox(height: 32),
@@ -230,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
             
             // Subtitle
             const Text(
-              'Verkaufe deine Produkte schnell und einfach',
+              'Verkaufe deine Produkte schnell und einfach auf Kleinanzeigen mit Hilfe von KI',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey,

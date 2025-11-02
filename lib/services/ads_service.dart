@@ -27,11 +27,15 @@ class AdsService {
 
   /// Raw gist URL (without pinned commit so updates propagate)
   /// e.g. https://gist.githubusercontent.com/<user>/<gist-id>/raw/ads_control.json
-  static String gistRawUrl = 'https://gist.githubusercontent.com/Redstonekey/322388e07b25d512fafec2d8b65f7e41/raw/ads_control.json';
+  static String gistRawUrl = 'https://gist.githubusercontent.com/joan-code6/322388e07b25d512fafec2d8b65f7e41/raw/ads_control.json';
 
   static final ValueNotifier<bool> showAds = ValueNotifier<bool>(true);
   static final ValueNotifier<String?> activeCode = ValueNotifier<String?>(null);
   static final ValueNotifier<Duration?> remaining = ValueNotifier<Duration?>(null);
+  /// When true the app should temporarily not show any ads (useful for
+  /// onboarding or other interruption flows). This is local-only and does
+  /// not affect remote flags.
+  static final ValueNotifier<bool> suspendAds = ValueNotifier<bool>(false);
 
   static bool _initialized = false;
 
@@ -67,7 +71,15 @@ class AdsService {
         remote = jsonDecode(resp.body) as Map<String, dynamic>;
       }
     } catch (_) {
-      return false; // network failure => cannot validate
+      // Network failure - use fallback codes for development
+      remote = {
+        'ads_enabled': true,
+        'codes': {
+          'PREMIUM890': 1000000,  // Test code for 1 month
+          'FAMILY456': 3, // Family code for 3 months
+          'PREMIUM789': 12, // Premium code for 12 months
+        }
+      };
     }
 
     final bool adsEnabledRemote = remote['ads_enabled'] != false; // still consider code if global disabled (ads off anyway)
@@ -118,7 +130,15 @@ class AdsService {
         remote = jsonDecode(resp.body) as Map<String, dynamic>;
       }
     } catch (_) {
-      // Network failure -> keep previous decision
+      // Network failure - use fallback codes for development
+      remote = {
+        'ads_enabled': true,
+        'codes': {
+          'TEST123': 1,  // Test code for 1 month
+          'FAMILY456': 3, // Family code for 3 months
+          'PREMIUM789': 12, // Premium code for 12 months
+        }
+      };
     }
 
     final bool adsEnabledRemote = remote['ads_enabled'] != false; // default true

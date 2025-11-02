@@ -48,7 +48,6 @@ class CameraService {
       
       return filePath;
     } catch (e) {
-      print('Error taking picture: $e');
       return null;
     }
   }

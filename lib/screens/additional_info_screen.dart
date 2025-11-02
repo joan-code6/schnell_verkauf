@@ -3,11 +3,15 @@ import '../services/ai_service.dart';
 import 'edit_product_screen.dart';
 
 class AdditionalInfoScreen extends StatefulWidget {
+  // All images user captured (can be >3) for final posting
   final List<String> imagePaths;
+  // Subset (<=3) chosen for AI analysis
+  final List<String> aiImagePaths;
   
   const AdditionalInfoScreen({
     super.key,
     required this.imagePaths,
+    required this.aiImagePaths,
   });
 
   @override
@@ -20,18 +24,14 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
   
   // Preset phrases for common product conditions
   final List<String> _presets = [
+    'Funktionsfähig',
     'Neuwertig',
+    'Ungeöffnet',
     'Sehr guter Zustand',
     'Guter Zustand',
     'Gebraucht',
     'Defekt',
-    'Für Bastler',
-    'Gebrauchsspuren',
     'Originalverpackung',
-    'Ohne Zubehör',
-    'Vintage',
-    'Sammlerstück',
-    'Funktionsfähig',
   ];
   
   void _addPresetText(String preset) {
@@ -50,9 +50,9 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
   }
   
   Future<void> _analyzeWithAI() async {
-    if (widget.imagePaths.isEmpty) {
+  if (widget.aiImagePaths.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bitte mindestens ein Foto hinzufügen')),
+    const SnackBar(content: Text('Bitte mindestens ein Foto für die KI auswählen')),
       );
       return;
     }
@@ -63,19 +63,32 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
     
     try {
       final additionalInfo = _additionalInfoController.text.trim();
-      final productData = await AIService.analyzeImages(widget.imagePaths, additionalInfo: additionalInfo);
+      // Only send selected AI images to Gemini, but keep full list when constructing ProductData
+      final productData = await AIService.analyzeImages(
+        widget.aiImagePaths,
+        additionalInfo: additionalInfo,
+      );
+      // Overwrite imagePaths with ALL images for editing/posting
+      final mergedProductData = productData.copyWith(imagePaths: widget.imagePaths);
       
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => EditProductScreen(productData: productData),
+            builder: (context) => EditProductScreen(productData: mergedProductData),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        String errorMessage = 'Fehler bei der Analyse: $e';
+        final err = e.toString();
+        String errorMessage = 'Fehler bei der Analyse: $err';
+        // Detect rate/quota messages from AIService and show friendlier text
+        if (err.toLowerCase().contains('rate') || err.toLowerCase().contains('quota') || err.toLowerCase().contains('rate-limit')) {
+          errorMessage = 'Rate-Limit erreicht oder Quota überschritten. Bitte warten Sie kurz und versuchen Sie es erneut.';
+        } else if (err.toLowerCase().contains('analys') && err.toLowerCase().contains('arbeit')) {
+          errorMessage = 'Analyse läuft bereits. Bitte warten.';
+        }
         
         // Check if it's an API key error
         if (e.toString().contains('API-Schlüssel')) {
@@ -200,7 +213,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
                             const Icon(Icons.photo_library, color: Colors.orange),
                             const SizedBox(width: 8),
                             Text(
-                              '${widget.imagePaths.length} Foto${widget.imagePaths.length != 1 ? 's' : ''} ausgewählt',
+                              '${widget.imagePaths.length} Foto${widget.imagePaths.length != 1 ? 's' : ''} gesamt | ${widget.aiImagePaths.length} für KI',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -209,9 +222,9 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Diese Fotos werden zusammen mit Ihren zusätzlichen Informationen an die KI gesendet.',
-                          style: TextStyle(
+                        Text(
+                          'Nur die markierten (${widget.aiImagePaths.length}) Bilder werden an die KI gesendet (Limitiert auf 3). Alle ${widget.imagePaths.length} werden für die Anzeige genutzt.',
+                          style: const TextStyle(
                             fontSize: 12,
                             color: Colors.grey,
                           ),

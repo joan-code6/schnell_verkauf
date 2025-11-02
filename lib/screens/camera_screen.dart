@@ -52,7 +52,6 @@ class _CameraScreenState extends State<CameraScreen> {
         _isInitializing = false;
       });
     } catch (e) {
-      print('Error initializing camera: $e');
       setState(() {
         _isInitializing = false;
       });
